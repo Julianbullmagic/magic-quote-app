@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: magic-quote-app
+    runtime: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: OPENAI_API_KEY
+        fromSecret: OPENAI_API_KEY
+    env:
+      - key: PORT
+        value: 10000

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Julian Bull Magic - Quote Generator</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 600px;
+      margin: 2rem auto;
+      padding: 1rem;
+      line-height: 1.6;
+    }
+    h1 { text-align: center; color: #333; }
+    .upload-area {
+      border: 2px dashed #ccc;
+      border-radius: 10px;
+      padding: 2rem;
+      text-align: center;
+      margin: 1rem 0;
+      cursor: pointer;
+    }
+    .upload-area:hover { border-color: #007bff; }
+    #preview {
+      margin-top: 2rem;
+      white-space: pre-line;
+      background: #f8f9fa;
+      padding: 1rem;
+      border-radius: 8px;
+      min-height: 100px;
+    }
+    button {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      margin-top: 1rem;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .loader {
+      text-align: center;
+      margin: 1rem 0;
+      display: none;
+    }
+    .loader:after {
+      content: " Processing...";
+    }
+  </style>
+</head>
+<body>
+  <h1>📸 Magic Show Quote Generator</h1>
+  <p>Upload a screenshot of a customer inquiry. AI will generate a response and price.</p>
+
+  <div class="upload-area" onclick="document.getElementById('imageInput').click()">
+    <p>📷 Click to upload image</p>
+    <input type="file" id="imageInput" accept="image/*" style="display:none" onchange="handleFile(this.files)">
+  </div>
+
+  <div class="loader" id="loader"></div>
+
+  <div id="result" style="display:none">
+    <h3>💰 Price: <span id="price"></span></h3>
+    <h3>📨 Response:</h3>
+    <div id="preview"></div>
+    <button onclick="copyToClipboard()">📋 Copy to Clipboard</button>
+  </div>
+
+  <script>
+    function handleFile(files) {
+      if (!files.length) return;
+
+      const file = files[0];
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const loader = document.getElementById('loader');
+      const result = document.getElementById('result');
+      loader.style.display = 'block';
+      result.style.display = 'none';
+
+      fetch('/analyze', {
+        method: 'POST',
+        body: formData
+      })
+      .then(res => res.json())
+      .then(data => {
+        loader.style.display = 'none';
+        result.style.display = 'block';
+        document.getElementById('price').textContent = '$' + data.price;
+        document.getElementById('preview').textContent = data.message;
+      })
+      .catch(err => {
+        loader.style.display = 'none';
+        alert('Error: ' + (err.message || 'Failed to process image'));
+      });
+    }
+
+    function copyToClipboard() {
+      const text = document.getElementById('preview').textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        alert('✅ Message copied to clipboard!');
+      }).catch(err => {
+        alert('❌ Copy failed: ' + err);
+      });
+    }
+  </script>
+</body>
+</html>
