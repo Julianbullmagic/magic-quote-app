@@ -69,6 +69,7 @@ Then:
 - Avoid any markdown or formatting.
 - Keep tone warm, professional, and slightly playful.
 - Do NOT invent details not in the prompt.
+-don't end with a sign off please
 
 3. Output ONLY JSON:
    {
@@ -98,23 +99,8 @@ No additional text, explanations, or markdown. Just the JSON object.
       max_tokens: 1000
     });
 
-    const aiOutput = aiResponse.choices[0].message.content.trim();
+    let aiOutput = aiResponse.choices[0].message.content.trim();
 
-        if (promptType==1){
-    aiOutput+=`\n\nCould you give me a rough idea of the number of people attending? This helps me determine the size of the tricks I can do and whether I need amplification. Will there be loud music?`;
-
-  aiOutput+=`\n\nIf you have any other requirements like insurance, please let me know before booking. Also, I need to know the exact time and suburb before booking so I can check if I'm free and calculate travel times between bookings. Please check if I'm still available — someone else may have booked me since this offer.`;
-
-  aiOutput+=`\n\nIf you're a booking agent or booking on behalf of someone else, I'll give you 20% commission on top of my fee — I just need to verify this with the customer. I also offer commission if you sell tickets to my show (after expenses).`;
-
-  aiOutput+=`\n\nI'm open to reciprocal social media promotion on Instagram or Facebook — it might help hype your event! My Instagram is @julianbullmagic and has a decent following.`;
-    }
-    if (promptType==2){
-        aiOutput=aiOutput+"\n\nCould you give me a rough idea of the number of people attending? This helps me determine the size of the tricks I can do and whether I need amplification. Will there be loud music?"
-aiOutput=aiOutput+"\n\nIf you have any other requirements like insurance, please let me know before booking. Also I need to know the exact time and suburb before booking so I can check if I am free and the travel times between the bookings.\n\nPlease check if I am still available before booking, some time may have elapsed since I made this initial offer and someone else may have booked me in that time."
-let prefix="PLEASE READ THIS BEFORE BOOKING \n\n"
-aiOutput=prefix+aiOutput
-    }
     console.log("🤖 Raw AI Output:", aiOutput);
 
     // Try to extract JSON from the response
