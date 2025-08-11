@@ -11,8 +11,17 @@
       margin: 2rem auto;
       padding: 1rem;
       line-height: 1.6;
+      background: #fff;
+      color: #333;
     }
-    h1 { text-align: center; color: #333; }
+    h1 {
+      text-align: center;
+      color: #2c3e50;
+    }
+    p {
+      text-align: center;
+      color: #666;
+    }
     .upload-area {
       border: 2px dashed #ccc;
       border-radius: 10px;
@@ -20,15 +29,25 @@
       text-align: center;
       margin: 1rem 0;
       cursor: pointer;
+      transition: border-color 0.2s;
     }
-    .upload-area:hover { border-color: #007bff; }
+    .upload-area:hover {
+      border-color: #007bff;
+    }
+    .upload-area p {
+      margin: 0;
+      color: #555;
+    }
     #preview {
       margin-top: 2rem;
       white-space: pre-line;
       background: #f8f9fa;
       padding: 1rem;
       border-radius: 8px;
+      border: 1px solid #e9ecef;
       min-height: 100px;
+      font-size: 16px;
+      color: #333;
     }
     button {
       display: block;
@@ -41,6 +60,10 @@
       border-radius: 8px;
       font-size: 16px;
       cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover {
+      background: #0069d9;
     }
     button:disabled {
       background: #ccc;
@@ -49,10 +72,22 @@
     .loader {
       text-align: center;
       margin: 1rem 0;
+      color: #007bff;
+      font-weight: bold;
       display: none;
     }
-    .loader:after {
-      content: " Processing...";
+    .error {
+      color: #e74c3c;
+      text-align: center;
+      margin: 1rem 0;
+      display: none;
+    }
+    #result {
+      display: none;
+    }
+    #price {
+      font-weight: bold;
+      color: #2c3e50;
     }
   </style>
 </head>
@@ -60,12 +95,22 @@
   <h1>📸 Magic Show Quote Generator</h1>
   <p>Upload a screenshot of a customer inquiry. AI will generate a response and price.</p>
 
-  <div class="upload-area" onclick="document.getElementById('imageInput').click()">
-    <p>📷 Click to upload image</p>
-    <input type="file" id="imageInput" accept="image/*" style="display:none" onchange="handleFile(this.files)">
-  </div>
+<div style="margin: 1rem 0; text-align: center;">
+  <button id="prompt1Btn" class="prompt-btn" style="margin: 0.5rem; background: #007bff;" onclick="setPrompt(1)">
+    ✅ Prompt 1: For Other Bookings
+  </button>
+  <button id="prompt2Btn" class="prompt-btn" style="margin: 0.5rem; background: #6c757d;" onclick="setPrompt(2)">
+    ✅ Prompt 2: for Airtasker or Crowdpleaser
+  </button>
+</div>
 
-  <div class="loader" id="loader"></div>
+<div class="upload-area" onclick="document.getElementById('imageInput').click()">
+  <p>📷 Click to upload image</p>
+  <input type="file" id="imageInput" accept="image/*" style="display:none" onchange="handleFile(this.files)">
+</div>
+
+  <div class="loader" id="loader">Processing your image...</div>
+  <div class="error" id="error"></div>
 
   <div id="result" style="display:none">
     <h3>💰 Price: <span id="price"></span></h3>
@@ -75,42 +120,139 @@
   </div>
 
   <script>
+    function setPrompt(promptNum) {
+  selectedPrompt = promptNum;
+
+  // Visual feedback
+  document.getElementById('prompt1Btn').style.opacity = promptNum === 1 ? '1' : '0.4';
+  document.getElementById('prompt2Btn').style.opacity = promptNum === 2 ? '1' : '0.4';
+}
+
+// Initialize button styles
+setPrompt(1);
+
     function handleFile(files) {
-      if (!files.length) return;
-
-      const file = files[0];
-      const formData = new FormData();
-      formData.append('image', file);
-
+      const errorDiv = document.getElementById('error');
       const loader = document.getElementById('loader');
       const result = document.getElementById('result');
+
+      errorDiv.style.display = 'none';
       loader.style.display = 'block';
       result.style.display = 'none';
 
-      fetch('/analyze', {
-        method: 'POST',
-        body: formData
-      })
-      .then(res => res.json())
-      .then(data => {
-        loader.style.display = 'none';
-        result.style.display = 'block';
-        document.getElementById('price').textContent = '$' + data.price;
-        document.getElementById('preview').textContent = data.message;
-      })
-      .catch(err => {
-        loader.style.display = 'none';
-        alert('Error: ' + (err.message || 'Failed to process image'));
+
+      let selectedPrompt = 1; // Default
+
+
+      if (!files || files.length === 0) {
+        showError("No file selected.");
+        return;
+      }
+
+      const file = files[0];
+
+      // Validate file type
+      if (!file.type.match(/image\/(jpeg|jpg|png|webp)/)) {
+        showError("Please upload a valid image (JPEG, PNG, WEBP).");
+        return;
+      }
+
+      const reader = new FileReader();
+
+      reader.onload = async function(e) {
+        try {
+          const imageDataUrl = e.target.result;
+          const compressedImage = await compressImage(imageDataUrl, 0.8);
+          console.log(compressedImage)
+          const mimeType = file.type;
+
+          const response = await fetch('/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+     body: JSON.stringify({
+    image: compressedImage.split(',')[1],
+    mimeType: mimeType,
+    promptType: selectedPrompt  // 👈 Send selected prompt
+  })
+          });
+               console.log(response)
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `HTTP ${response.status}`);
+          }
+
+          const data = await response.json();
+
+          loader.style.display = 'none';
+          result.style.display = 'block';
+          document.getElementById('price').textContent = data.price;
+          document.getElementById('preview').textContent = data.message;
+
+        } catch (err) {
+          showError(`Failed to process image: ${err.message}`);
+        }
+      };
+
+      reader.onerror = () => {
+        showError("Failed to read file.");
+      };
+
+      reader.readAsDataURL(file);
+    }
+
+    // Compress and resize image
+    async function compressImage(imageDataUrl, quality = 0.8) {
+      const img = new Image();
+      img.src = imageDataUrl;
+
+      return new Promise((resolve, reject) => {
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+
+          // Resize to max 800px width
+          const maxWidth = 800;
+          const ratio = maxWidth / img.width;
+          const width = img.width * Math.min(ratio, 1);
+          const height = img.height * Math.min(ratio, 1);
+
+          canvas.width = width;
+          canvas.height = height;
+          ctx.drawImage(img, 0, 0, width, height);
+
+          try {
+            const base64 = canvas.toDataURL(`image/${img.src.split(';')[0].split('/')[1]}`, quality);
+            resolve(base64);
+          } catch (err) {
+            reject(err);
+          }
+        };
+
+        img.onerror = () => {
+          reject(new Error("Image load failed"));
+        };
       });
     }
 
+    // Show error message
+    function showError(msg) {
+      const loader = document.getElementById('loader');
+      const errorDiv = document.getElementById('error');
+      loader.style.display = 'none';
+      errorDiv.textContent = msg;
+      errorDiv.style.display = 'block';
+    }
+
+    // Copy message to clipboard
     function copyToClipboard() {
       const text = document.getElementById('preview').textContent;
-      navigator.clipboard.writeText(text).then(() => {
-        alert('✅ Message copied to clipboard!');
-      }).catch(err => {
-        alert('❌ Copy failed: ' + err);
-      });
+      navigator.clipboard.writeText(text)
+        .then(() => {
+          alert('✅ Message copied to clipboard!');
+        })
+        .catch(err => {
+          alert('❌ Copy failed: ' + err.message);
+        });
     }
   </script>
 </body>
