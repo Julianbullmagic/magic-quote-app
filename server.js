@@ -51,18 +51,18 @@ Analyze the image and extract:
 Then:
 1. Calculate a price using:
    - Base: $200 (weekday), $250 (weekend)
-   - +$100 for affluent suburbs (e.g., Northern Beaches, Sutherland Shire)
+   - +$200 for affluent suburbs (e.g., Northern Beaches, Sutherland Shire)
    - +$50 per 50km from Sydney CBD (e.g., Wollongong = +$100)
    - Wedding → ×1.5
    - Corporate event → Apply multiplier:
-     - Small startup → ×2.5
-     - Mid-sized company → ×4
-     - Large corporation (bank, tech, gov) → ×6–×8
-     - Luxury/launch/VIP → ×10+
-   - Festival (public, arts, community, music) → ×3 to ×7
-     - Base ×3 for local/community events
-     - ×5 for regional or well-funded festivals
-     - ×6–×7 for major curated or interstate festivals
+     - Small startup → ×1.5
+     - Mid-sized company → ×2
+     - Large corporation (bank, tech, gov) → ×3
+     - Luxury/launch/VIP → ×4
+   - Festival (public, arts, community, music) → ×1.5 to 3
+     - Base 1.5 for local/community events
+     - ×2 for regional or well-funded festivals
+     - ×3 for major curated or interstate festivals
      - Consider audience size, exposure, and performance load
 2. Generate a natural response (~60 tokens) starting with "Hi {name}," or "Hi,"
    - Mention: $XXX price for 45+ min show
