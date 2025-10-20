@@ -51,8 +51,10 @@ Analyze the image and extract:
 Then:
 1. Calculate a price using:
    - Base: $200 (weekday), $250 (weekend)
-   - +$200 for affluent suburbs (e.g., Northern Beaches, Sutherland Shire)
-   - +$50 per 50km from Sydney CBD (e.g., Wollongong = +$100)
+   - +$100 for affluent suburbs (e.g., Northern Beaches, Sutherland Shire)
+   - +$50 per 25km from Sydney CBD (e.g., Wollongong = +$100)
+   -Some of the peripheral suburbs of Sydney are still really far away, please add an
+   extra $50 for bookings further away than Penrith, Minto or Mona Vale
    - Wedding → ×1.5
    - Corporate event → Apply multiplier:
      - Small startup → ×1.5
