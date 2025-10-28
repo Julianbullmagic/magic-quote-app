@@ -89,27 +89,69 @@
       font-weight: bold;
       color: #2c3e50;
     }
+    textarea {
+      width: 100%;
+      min-height: 150px;
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 16px;
+      box-sizing: border-box;
+      margin: 1rem 0;
+      resize: vertical;
+    }
+    .mode-toggle {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 1rem;
+    }
+    .mode-toggle button {
+      width: auto;
+      margin: 0 0.5rem;
+      padding: 8px 16px;
+    }
+    .active-mode {
+      background-color: #28a745 !important;
+    }
+    .hidden {
+      display: none;
+    }
   </style>
 </head>
 <body>
   <h1>📸 Magic Show Quote Generator</h1>
-  <p>Upload a screenshot of a customer inquiry. AI will generate a response and price.</p>
+  <p>Upload a screenshot of a customer inquiry or paste text. AI will generate a response and price.</p>
 
-<div style="margin: 1rem 0; text-align: center;">
-  <button id="prompt1Btn" class="prompt-btn" style="margin: 0.5rem; background: #007bff;" onclick="setPrompt(1)">
-    ✅ Prompt 1: For Other Bookings
-  </button>
-  <button id="prompt2Btn" class="prompt-btn" style="margin: 0.5rem; background: #6c757d;" onclick="setPrompt(2)">
-    ✅ Prompt 2: for Airtasker or Crowdpleaser
-  </button>
-</div>
+  <div class="mode-toggle">
+    <button id="imageModeBtn" class="active-mode" onclick="switchMode('image')">📷 Image Mode</button>
+    <button id="textModeBtn" onclick="switchMode('text')">📝 Text Mode</button>
+  </div>
 
-<div class="upload-area" onclick="document.getElementById('imageInput').click()">
-  <p>📷 Click to upload image</p>
-  <input type="file" id="imageInput" accept="image/*" style="display:none" onchange="handleFile(this.files)">
-</div>
+  <div style="margin: 1rem 0; text-align: center;">
+    <button id="prompt1Btn" class="prompt-btn" style="margin: 0.5rem; background: #007bff;" onclick="setPrompt(1)">
+      ✅ Prompt 1: For Other Bookings
+    </button>
+    <button id="prompt2Btn" class="prompt-btn" style="margin: 0.5rem; background: #6c757d;" onclick="setPrompt(2)">
+      ✅ Prompt 2: for Airtasker or Crowdpleaser
+    </button>
+  </div>
 
-  <div class="loader" id="loader">Processing your image...</div>
+  <!-- Image Upload Area -->
+  <div id="imageMode" class="mode-container">
+    <div class="upload-area" onclick="document.getElementById('imageInput').click()">
+      <p>📷 Click to upload image</p>
+      <input type="file" id="imageInput" accept="image/*" style="display:none" onchange="handleFile(this.files)">
+    </div>
+  </div>
+
+  <!-- Text Input Area -->
+  <div id="textMode" class="mode-container hidden">
+    <textarea id="textInput" placeholder="Paste customer inquiry text here..."></textarea>
+    <button onclick="handleText()">Generate Quote</button>
+  </div>
+
+  <div class="loader" id="loader">Processing your request...</div>
   <div class="error" id="error"></div>
 
   <div id="result" style="display:none">
@@ -120,19 +162,93 @@
   </div>
 
   <script>
-          let selectedPrompt = 1; // Default
+    let selectedPrompt = 1; // Default
+    let currentMode = 'image'; // Default mode
+
+    function switchMode(mode) {
+      currentMode = mode;
+      
+      // Toggle visibility of mode containers
+      document.getElementById('imageMode').classList.toggle('hidden', mode !== 'image');
+      document.getElementById('textMode').classList.toggle('hidden', mode !== 'text');
+      
+      // Update button styles
+      document.getElementById('imageModeBtn').classList.toggle('active-mode', mode === 'image');
+      document.getElementById('textModeBtn').classList.toggle('active-mode', mode === 'text');
+    }
 
     function setPrompt(promptNum) {
-  selectedPrompt = promptNum;
+      selectedPrompt = promptNum;
 
-  // Visual feedback
-  document.getElementById('prompt1Btn').style.opacity = promptNum === 1 ? '1' : '0.4';
-  document.getElementById('prompt2Btn').style.opacity = promptNum === 2 ? '1' : '0.4';
-  console.log(selectedPrompt)
-}
+      // Visual feedback
+      document.getElementById('prompt1Btn').style.opacity = promptNum === 1 ? '1' : '0.4';
+      document.getElementById('prompt2Btn').style.opacity = promptNum === 2 ? '1' : '0.4';
+      console.log(selectedPrompt)
+    }
 
-// Initialize button styles
-setPrompt(1);
+    // Initialize button styles
+    setPrompt(1);
+
+    function handleText() {
+      const errorDiv = document.getElementById('error');
+      const loader = document.getElementById('loader');
+      const result = document.getElementById('result');
+      const textInput = document.getElementById('textInput').value;
+
+      errorDiv.style.display = 'none';
+      loader.style.display = 'block';
+      result.style.display = 'none';
+
+      if (!textInput.trim()) {
+        showError("Please enter some text.");
+        return;
+      }
+
+      processTextInput(textInput);
+    }
+
+    async function processTextInput(text) {
+      try {
+        const response = await fetch('/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            textInput: text,
+            promptType: selectedPrompt
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (selectedPrompt==1){
+          data.message+=`\n\nCould you give me a rough idea of the number of people attending? This helps me determine the size of the tricks I can do and whether I need amplification. Will there be loud music?`;
+
+          data.message+=`\n\nIf you have any other requirements like insurance, please let me know before booking. Also, I need to know the exact time and suburb before booking so I can check if I'm free and calculate travel times between bookings. Please check if I'm still available — someone else may have booked me since this offer.`;
+
+          data.message+=`\n\nIf you're a booking agent or booking on behalf of someone else, I'll give you 20% commission on top of my fee — I just need to verify this with the customer. I also offer commission if you sell tickets to my show (after expenses).`;
+
+          data.message+=`\n\nI'm open to reciprocal social media promotion on Instagram or Facebook — it might help hype your event! My Instagram is @julianbullmagic and has a decent following.`;
+        }
+        if (selectedPrompt==2){
+          data.message=data.message+"\n\nCould you give me a rough idea of the number of people attending? This helps me determine the size of the tricks I can do and whether I need amplification. Will there be loud music?"
+          data.message=data.message+"\n\nIf you have any other requirements like insurance, please let me know before booking. Also I need to know the exact time and suburb before booking so I can check if I am free and the travel times between the bookings.\n\nPlease check if I am still available before booking, some time may have elapsed since I made this initial offer and someone else may have booked me in that time."
+          let prefix="PLEASE READ THIS BEFORE BOOKING \n\n"
+          data.message=prefix+data.message
+        }
+
+        document.getElementById('loader').style.display = 'none';
+        document.getElementById('result').style.display = 'block';
+        document.getElementById('price').textContent = data.price;
+        document.getElementById('preview').textContent = data.message;
+
+      } catch (err) {
+        showError(`Failed to process text: ${err.message}`);
+      }
+    }
 
     function handleFile(files) {
       const errorDiv = document.getElementById('error');
@@ -142,9 +258,6 @@ setPrompt(1);
       errorDiv.style.display = 'none';
       loader.style.display = 'block';
       result.style.display = 'none';
-
-
-
 
       if (!files || files.length === 0) {
         showError("No file selected.");
@@ -171,34 +284,35 @@ setPrompt(1);
           const response = await fetch('/analyze', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-     body: JSON.stringify({
-    image: compressedImage.split(',')[1],
-    mimeType: mimeType,
-    promptType: selectedPrompt  // 👈 Send selected prompt
-  })
+            body: JSON.stringify({
+              image: compressedImage.split(',')[1],
+              mimeType: mimeType,
+              promptType: selectedPrompt  // 👈 Send selected prompt
+            })
           });
-               console.log(response)
+          console.log(response)
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
             throw new Error(errorData.error || `HTTP ${response.status}`);
           }
 
           const data = await response.json();
-    if (selectedPrompt==1){
-    data.message+=`\n\nCould you give me a rough idea of the number of people attending? This helps me determine the size of the tricks I can do and whether I need amplification. Will there be loud music?`;
+          if (selectedPrompt==1){
+            data.message+=`\n\nCould you give me a rough idea of the number of people attending? This helps me determine the size of the tricks I can do and whether I need amplification. Will there be loud music?`;
 
-  data.message+=`\n\nIf you have any other requirements like insurance, please let me know before booking. Also, I need to know the exact time and suburb before booking so I can check if I'm free and calculate travel times between bookings. Please check if I'm still available — someone else may have booked me since this offer.`;
+            data.message+=`\n\nIf you have any other requirements like insurance, please let me know before booking. Also, I need to know the exact time and suburb before booking so I can check if I'm free and calculate travel times between bookings. Please check if I'm still available — someone else may have booked me since this offer.`;
 
-  data.message+=`\n\nIf you're a booking agent or booking on behalf of someone else, I'll give you 20% commission on top of my fee — I just need to verify this with the customer. I also offer commission if you sell tickets to my show (after expenses).`;
+            data.message+=`\n\nIf you're a booking agent or booking on behalf of someone else, I'll give you 20% commission on top of my fee — I just need to verify this with the customer. I also offer commission if you sell tickets to my show (after expenses).`;
 
-  data.message+=`\n\nI'm open to reciprocal social media promotion on Instagram or Facebook — it might help hype your event! My Instagram is @julianbullmagic and has a decent following.`;
-    }
-    if (selectedPrompt==2){
-        data.message=data.message+"\n\nCould you give me a rough idea of the number of people attending? This helps me determine the size of the tricks I can do and whether I need amplification. Will there be loud music?"
-data.message=data.message+"\n\nIf you have any other requirements like insurance, please let me know before booking. Also I need to know the exact time and suburb before booking so I can check if I am free and the travel times between the bookings.\n\nPlease check if I am still available before booking, some time may have elapsed since I made this initial offer and someone else may have booked me in that time."
-let prefix="PLEASE READ THIS BEFORE BOOKING \n\n"
-data.message=prefix+data.message
-    }
+            data.message+=`\n\nI'm open to reciprocal social media promotion on Instagram or Facebook — it might help hype your event! My Instagram is @julianbullmagic and has a decent following.`;
+          }
+          if (selectedPrompt==2){
+            data.message=data.message+"\n\nCould you give me a rough idea of the number of people attending? This helps me determine the size of the tricks I can do and whether I need amplification. Will there be loud music?"
+            data.message=data.message+"\n\nIf you have any other requirements like insurance, please let me know before booking. Also I need to know the exact time and suburb before booking so I can check if I am free and the travel times between the bookings.\n\nPlease check if I am still available before booking, some time may have elapsed since I made this initial offer and someone else may have booked me in that time."
+            let prefix="PLEASE READ THIS BEFORE BOOKING \n\n"
+            data.message=prefix+data.message
+          }
+
           loader.style.display = 'none';
           result.style.display = 'block';
           document.getElementById('price').textContent = data.price;
