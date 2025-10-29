@@ -143,12 +143,14 @@
       <p>📷 Click to upload image</p>
       <input type="file" id="imageInput" accept="image/*" style="display:none" onchange="handleFile(this.files)">
     </div>
+    <button id="generateLeadImageBtn" onclick="generateLeadFromImage()" style="background: #28a745; margin-top: 0.5rem;">🎯 Generate Lead</button>
   </div>
 
   <!-- Text Input Area -->
   <div id="textMode" class="mode-container hidden">
     <textarea id="textInput" placeholder="Paste customer inquiry text here..."></textarea>
     <button onclick="handleText()">Generate Quote</button>
+    <button onclick="generateLeadFromText()" style="background: #28a745; margin-top: 0.5rem;">🎯 Generate Lead</button>
   </div>
 
   <div class="loader" id="loader">Processing your request...</div>
@@ -383,6 +385,93 @@
         .catch(err => {
           alert('❌ Copy failed: ' + err.message);
         });
+    }
+
+    // Generate lead from text input
+    async function generateLeadFromText() {
+      const errorDiv = document.getElementById('error');
+      const loader = document.getElementById('loader');
+      const textInput = document.getElementById('textInput').value;
+
+      errorDiv.style.display = 'none';
+      loader.style.display = 'block';
+
+      if (!textInput.trim()) {
+        showError("Please enter some text.");
+        return;
+      }
+
+      try {
+        const response = await fetch('/generate-lead', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            textInput: textInput
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        loader.style.display = 'none';
+        alert(`✅ ${data.message}`);
+
+      } catch (err) {
+        showError(`Failed to generate lead: ${err.message}`);
+      }
+    }
+
+    // Generate lead from image
+    async function generateLeadFromImage() {
+      const errorDiv = document.getElementById('error');
+      const loader = document.getElementById('loader');
+      const fileInput = document.getElementById('imageInput');
+
+      errorDiv.style.display = 'none';
+      loader.style.display = 'block';
+
+      if (!fileInput.files || fileInput.files.length === 0) {
+        showError("Please upload an image first.");
+        return;
+      }
+
+      const file = fileInput.files[0];
+
+      try {
+        const imageDataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = e => resolve(e.target.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+
+        const compressedImage = await compressImage(imageDataUrl, 0.8);
+        const mimeType = file.type;
+
+        const response = await fetch('/generate-lead', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            image: compressedImage.split(',')[1],
+            mimeType: mimeType
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        loader.style.display = 'none';
+        alert(`✅ ${data.message}`);
+
+      } catch (err) {
+        showError(`Failed to generate lead: ${err.message}`);
+      }
     }
   </script>
 </body>

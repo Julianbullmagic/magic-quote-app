@@ -1,5 +1,7 @@
 const express = require('express');
 const { OpenAI } = require("openai");
+const { createClient } = require('@supabase/supabase-js');
+const { v4: uuidv4 } = require('uuid');
 require('dotenv').config();
 
 const app = express();
@@ -14,7 +16,61 @@ app.use(express.json({
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
+// Initialize Supabase client
+const supabase = createClient(process.env.SUPABASEURL, process.env.SUPABASEKEY);
+
 app.use(express.static('public'));
+
+// Lead extraction function using AI
+async function extractLeadWithAI(input) {
+    const prompt = `Here is some information about an event copied from a conversation or website "${input}". The date today is ${new Date().toLocaleString("en-US", {timeZone: "Australia/Sydney"})}
+    you can assume that the event being discussed is in the future relative to this date.
+    I would like you to respond with a JSON array containing an object or objects that each contain properties for crucial lead information.
+    Each object in the array should include properties for customer_name, email_address, phone_number, website, price, address, start_time, and end_time (in AEST).
+    Also include a short summary in the summary property. If no price is mentioned, the default should be 0. The price should only be a number, without any
+    dollar sign. The start_time and end_time should be converted to timestamptz format. There may be a url appended at the end of the information I give you,
+    I would like this to be the website property of the object you return. My website, www.Julianbullmagic.com, may be somewhere in the text
+    but you can ignore this as it is not the website we are looking for. The information I give you may request several leads.
+      There might be a conversation included in which the customer gives updated or more specific details about the event or events, in that
+  case you should use this more recent or specific information in your response. In other words, we need the most recent and specific details about
+  the lead or leads. The response should be an array of javascript objects,
+   nothing else outside this. Include no special characters in the response, essentially it is minified.`;
+
+    const response = await openai.chat.completions.create({
+        messages: [{ role: "system", content: prompt }],
+        max_tokens: 400,
+        model: "gpt-4o-mini",
+    });
+    
+    return JSON.parse(response.choices[0].message.content);
+}
+
+// Lead insertion function with deduplication
+async function insertLead(leadData) {
+    // Check for existing lead and update or insert
+    const { data: existingLeads } = await supabase
+        .from('leads')
+        .select('*')
+        .eq('customer_name', leadData.customer_name)
+        .eq('num', leadData.num);
+    
+    if (existingLeads && existingLeads.length > 0) {
+        // Update existing lead
+        return await supabase
+            .from('leads')
+            .update(leadData)
+            .eq('customer_name', leadData.customer_name)
+            .eq('num', leadData.num)
+            .select();
+    } else {
+        // Insert new lead
+        return await supabase
+            .from('leads')
+            .insert([leadData])
+            .select();
+    }
+}
+
 app.post('/analyze', async (req, res) => {
   try {
     const { image, mimeType, textInput, promptType = 1 } = req.body;
@@ -230,6 +286,83 @@ No additional text, explanations, or markdown. Just the JSON object.
       res.status(500).json({ 
         error: "Processing failed", 
         details: err.message 
+      });
+    }
+  }
+});
+
+// Lead generation endpoint
+app.post('/generate-lead', async (req, res) => {
+  try {
+    const { image, mimeType, textInput } = req.body;
+
+    // Validate input - either image or text must be provided
+    if (!image && !textInput) {
+      return res.status(400).json({
+        error: 'Missing image or text input'
+      });
+    }
+
+    let leadInput;
+    
+    if (textInput) {
+      // Use text input directly
+      leadInput = textInput;
+    } else {
+      // For image input, we need to extract text using OCR first
+      // For now, we'll use a simpler approach with the image analysis prompt
+      const ocrPrompt = `Extract all text from this image. Return only the text content without any additional commentary or formatting.`;
+      
+      const ocrResponse = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: ocrPrompt },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:${mimeType};base64,${image}`
+                }
+              }
+            ]
+          }
+        ],
+        max_tokens: 1000
+      });
+      
+      leadInput = ocrResponse.choices[0].message.content.trim();
+    }
+
+    // Extract lead data using AI
+    const leadDataArray = await extractLeadWithAI(leadInput);
+    
+    // Process each lead
+    const results = [];
+    for (let i = 0; i < leadDataArray.length; i++) {
+      const lead = leadDataArray[i];
+      lead.id = uuidv4();
+      lead.created_at = new Date().toISOString();
+      lead.num = i + 1;
+      
+      // Store in database
+      const result = await insertLead(lead);
+      results.push(result);
+    }
+    
+    res.json({
+      success: true,
+      message: `Successfully created ${leadDataArray.length} lead(s)`,
+      leads: results
+    });
+
+  } catch (err) {
+    console.error("💥 Lead Generation Error:", err.message);
+    if (!res.headersSent) {
+      res.status(500).json({
+        error: "Lead generation failed",
+        details: err.message
       });
     }
   }
