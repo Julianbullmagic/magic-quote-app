@@ -146,57 +146,42 @@ No additional text, explanations, or markdown. Just the JSON object.
     } else {
       // Original prompt for image analysis
       prompt = `
-You are a pricing and response assistant for Julian, a magician in Sydney.
+You are a professional pricing assistant for a magician named Julian based in Sydney, Australia.
 
-Analyze the image and extract:
-- Customer name
-- Event type (wedding, corporate, kids, etc.)
-- Date (weekday/weekend)
-- Location (suburb, city)
-- Any other details
+Please analyze this business inquiry image and extract the relevant information for a magic show booking request.
 
-Then:
-1. Calculate a price using:
-   - Base: $200 (weekday), $250 (weekend)
-   - +$100 for affluent suburbs (e.g., Northern Beaches, Sutherland Shire)
-   - +$50 per 25km from Sydney CBD (e.g., Wollongong = +$100)
-   -Some of the peripheral suburbs of Sydney are still really far away, please add an
-   extra $50 for bookings further away than Penrith, Minto or Mona Vale
-   - Wedding → ×1.5
-   - Corporate event → Apply multiplier:
-     - Small startup → ×1.5
-     - Mid-sized company → ×2
-     - Large corporation (bank, tech, gov) → ×3
-     - Luxury/launch/VIP → ×4
-   - Festival (public, arts, community, music) → ×1.5 to 3
-     - Base 1.5 for local/community events
-     - ×2 for regional or well-funded festivals
-     - ×3 for major curated or interstate festivals
-     - Consider audience size, exposure, and performance load
-2. Generate a natural response (~60 tokens) starting with "Hi {name}," or "Hi,"
-   - Mention: $XXX price for 45+ min show
-   - Do NOT use "regards", "sincerely", placeholders, or markdown
-   Important details to include:
-- I can provide a large stage show or roving close-up magic.
-- My style: sleight of hand and illusions using everyday objects.
-- My name is Julian.
-- Do NOT begin with "Greetings" or "Hello!".
-- If you can identify a human name in the message, start with "Hi {name},".
-- Otherwise, start with "Hi,".
-- Always leave a blank line after the greeting.
-- NEVER use: "regards", "sincerely", "enchant", brackets [], {}, (), or placeholders.
-- Avoid any markdown or formatting.
-- Keep tone warm, professional, and slightly playful.
-- Do NOT invent details not in the prompt.
--don't end with a sign off please
+Extract and analyze:
+- Customer name (if visible)
+- Event type (wedding, corporate, children's party, etc.)
+- Date information
+- Location details
+- Any other relevant booking details
 
-3. Output ONLY JSON:
-   {
-     "price": 650,
-     "message": "Hi Sarah,\\n\\nI'd love to perform..."
-   }
+Then calculate a fair price and generate a professional response:
 
-No additional text, explanations, or markdown. Just the JSON object.
+Pricing calculation:
+- Base rate: $200 (weekday), $250 (weekend)
+- Location surcharge: +$100 for premium areas (Northern Beaches, Sutherland Shire)
+- Distance surcharge: +$50 per 25km from Sydney CBD
+- Remote areas: +$50 for locations beyond Penrith, Minto, or Mona Vale
+- Event multipliers:
+  * Wedding: ×1.5
+  * Corporate: Small startup ×1.5, Mid-sized ×2, Large corporation ×3, Luxury/VIP ×4
+  * Festival: Community ×1.5, Regional ×2, Major ×3
+
+Response requirements:
+- Start with "Hi {name}," if name is found, otherwise "Hi,"
+- Include the calculated price for a 45+ minute performance
+- Mention that Julian provides stage shows and close-up magic
+- Describe his style as sleight of hand with everyday objects
+- Keep it professional, warm, and under 60 tokens
+- No sign-offs, greetings other than "Hi", or markdown formatting
+
+Output format (JSON only):
+{
+  "price": 650,
+  "message": "Hi Sarah,\\n\\nI'd love to perform..."
+}
 `;
     }
 
@@ -249,6 +234,15 @@ No additional text, explanations, or markdown. Just the JSON object.
 
     console.log("🤖 Raw AI Output:", aiOutput);
 
+    // Check for content policy rejection
+    if (aiOutput.includes("I'm sorry") || aiOutput.includes("I cannot") || aiOutput.includes("I can't assist")) {
+      console.error("❌ Content policy rejection detected");
+      return res.status(400).json({
+        error: "Content policy violation",
+        details: "The image content was rejected by the AI content filter. Please try with a different image or use text mode instead."
+      });
+    }
+
     // Try to extract JSON from the response
     let result;
     try {
@@ -263,9 +257,9 @@ No additional text, explanations, or markdown. Just the JSON object.
         result = JSON.parse(jsonStr);
       } catch (parseError) {
         console.error("❌ Failed to parse AI response as JSON:", aiOutput);
-        return res.status(500).json({ 
+        return res.status(500).json({
           error: "AI returned invalid JSON",
-          details: parseError.message 
+          details: parseError.message
         });
       }
     }
@@ -311,7 +305,7 @@ app.post('/generate-lead', async (req, res) => {
     } else {
       // For image input, we need to extract text using OCR first
       // For now, we'll use a simpler approach with the image analysis prompt
-      const ocrPrompt = `Extract all text from this image. Return only the text content without any additional commentary or formatting.`;
+      const ocrPrompt = `Please extract all readable text from this business inquiry image. Return only the text content exactly as it appears, without any additional commentary or formatting.`;
       
       const ocrResponse = await openai.chat.completions.create({
         model: 'gpt-4o',
@@ -332,7 +326,14 @@ app.post('/generate-lead', async (req, res) => {
         max_tokens: 1000
       });
       
-      leadInput = ocrResponse.choices[0].message.content.trim();
+      let ocrOutput = ocrResponse.choices[0].message.content.trim();
+      
+      // Check for content policy rejection in OCR
+      if (ocrOutput.includes("I'm sorry") || ocrOutput.includes("I cannot") || ocrOutput.includes("I can't assist")) {
+        throw new Error("Content policy violation: The image content was rejected by the AI content filter. Please try with a different image or use text mode instead.");
+      }
+      
+      leadInput = ocrOutput;
     }
 
     // Extract lead data using AI

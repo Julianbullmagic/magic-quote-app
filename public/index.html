@@ -321,7 +321,14 @@
           document.getElementById('preview').textContent = data.message;
 
         } catch (err) {
-          showError(`Failed to process image: ${err.message}`);
+          let errorMessage = `Failed to process image: ${err.message}`;
+          
+          // Provide more user-friendly message for content policy violations
+          if (err.message.includes("Content policy violation")) {
+            errorMessage = "⚠️ This image was blocked by the content filter. Please try:\n• Using a different image\n• Switching to text mode and typing the inquiry details\n• Ensuring the image contains only business-related content";
+          }
+          
+          showError(errorMessage);
         }
       };
 
@@ -420,7 +427,14 @@
         alert(`✅ ${data.message}`);
 
       } catch (err) {
-        showError(`Failed to generate lead: ${err.message}`);
+        let errorMessage = `Failed to generate lead: ${err.message}`;
+        
+        // Provide more user-friendly message for content policy violations
+        if (err.message.includes("Content policy violation")) {
+          errorMessage = "⚠️ This image was blocked by the content filter. Please try:\n• Using a different image\n• Switching to text mode and typing the inquiry details\n• Ensuring the image contains only business-related content";
+        }
+        
+        showError(errorMessage);
       }
     }
 
@@ -470,7 +484,14 @@
         alert(`✅ ${data.message}`);
 
       } catch (err) {
-        showError(`Failed to generate lead: ${err.message}`);
+        let errorMessage = `Failed to generate lead: ${err.message}`;
+        
+        // Provide more user-friendly message for content policy violations
+        if (err.message.includes("Content policy violation")) {
+          errorMessage = "⚠️ This image was blocked by the content filter. Please try:\n• Using a different image\n• Switching to text mode and typing the inquiry details\n• Ensuring the image contains only business-related content";
+        }
+        
+        showError(errorMessage);
       }
     }
   </script>
